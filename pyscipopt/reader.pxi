@@ -5,7 +5,7 @@ cdef SCIP_RETCODE PyReaderFree (SCIP* scip, SCIP_READER* reader):
     cdef SCIP_READERDATA* readerdata
     readerdata = SCIPreaderGetData(reader)
     PyReader = <Reader>readerdata
-    PyReader.free()
+    PyReader.readerfree()
     Py_DECREF(PyReader)
     return SCIP_OKAY
 
@@ -13,7 +13,7 @@ cdef SCIP_RETCODE PyReaderRead (SCIP* scip, SCIP_READER* reader, const char* fil
     cdef SCIP_READERDATA* readerdata
     readerdata = SCIPreaderGetData(reader)
     PyReader = <Reader>readerdata
-    result_dict = PyReader.read(file)
+    result_dict = PyReader.readerread(file)
     result[0] = result_dict.get("result", <SCIP_RESULT>result[0])
     return SCIP_OKAY
 
@@ -28,7 +28,7 @@ cdef SCIP_RETCODE PyReaderWrite (SCIP* scip, SCIP_READER* reader, FILE* file,
     readerdata = SCIPreaderGetData(reader)
     PyReader = <Reader>readerdata
     # TODO this needs a proper implementation
-    #result[0] = PyReader.write(file, name, probdata, transformed, objsense, objscale, objoffset,
+    #result[0] = PyReader.readerwrite(file, name, probdata, transformed, objsense, objscale, objoffset,
                                #vars, nvars, nbinvars, nintvars, nimplvars, ncontvars,
                                #fixedvars, nfixedvars, startnvars, conss, nconss, maxnconss, startnconss,
                                #genericnames)
@@ -41,7 +41,7 @@ cdef class Reader:
     def readerfree(self):
         pass
 
-    def readerinit(self):
+    def readerinit(self): #this guy doesn't have any friend above
         pass
 
     def readerread(self, file):

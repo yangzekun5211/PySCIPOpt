@@ -15,6 +15,7 @@ include "presol.pxi"
 include "pricer.pxi"
 include "propagator.pxi"
 include "sepa.pxi"
+include "reader.pxi"
 
 # for external user functions use def; for functions used only inside the interface (starting with _) use cdef
 # todo: check whether this is currently done like this
@@ -1067,6 +1068,24 @@ cdef class Model:
                                           <SCIP_PROPDATA*> prop))
         prop.model = <Model>weakref.proxy(self)
         Py_INCREF(prop)
+
+    def includeReader(self, Reader reader, name, desc, extension):
+        """Include a reader.
+
+        Keyword arguments:
+        read -- the reader
+        name -- the name
+        desc -- the description
+        extension -- file extension that reader processes
+        """
+        n = str_conversion(name)
+        d = str_conversion(desc)
+        e = str_conversion(extension)
+        PY_SCIP_CALL(SCIPincludeReader(self._scip, n, d, e,
+                                          PyReaderCopy, PyReaderFree, PyReaderRead, PyReaderWrite,
+                                          <SCIP_READERDATA*> reader))
+        reader.model = <Model>weakref.proxy(self)
+        Py_INCREF(reader)
 
     def includeHeur(self, Heur heur, name, desc, dispchar, priority=10000, freq=1, freqofs=0,
                     maxdepth=-1, timingmask=SCIP_HEURTIMING_BEFORENODE, usessubscip=False):

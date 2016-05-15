@@ -8,6 +8,7 @@ from pyscipopt.scip      import Presol
 from pyscipopt.scip      import Pricer
 from pyscipopt.scip      import Prop
 from pyscipopt.scip      import Sepa
+from pyscipopt.scip      import Reader
 from pyscipopt.scip      import LP
 from pyscipopt.scip      import quicksum
 from pyscipopt.scip      import PY_SCIP_RESULT       as SCIP_RESULT
