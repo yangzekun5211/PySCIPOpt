@@ -406,6 +406,10 @@ cdef class Model:
         """
         PY_SCIP_CALL(SCIPsetObjlimit(self._scip, objlimit))
 
+    def setObjIntegral(self):
+        """Informs SCIP that the objective value is always integral in every feasible solution."""
+        PY_SCIP_CALL(SCIPsetObjIntegral(self._scip))
+
     def setObjective(self, coeffs, sense = 'minimize'):
         """Establish the objective function, either as a variable dictionary or as a linear expression.
 
