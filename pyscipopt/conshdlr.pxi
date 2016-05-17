@@ -54,7 +54,9 @@ cdef SCIP_RETCODE PyConsInitsol (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS*
     cdef constraints = []
     for i in range(nconss):
         constraints.append(getPyCons(conss[i]))
-    PyConshdlr.consinitsol(constraints)
+    # could we do this automatically? storing all included python plugins and apply this in the probtrans callback?
+    PyConshdlr.model = <Model>weakref.proxy(<Model>SCIPgetProbData(scip))
+    PyConshdlr.consinitsol( constraints)
     return SCIP_OKAY
 
 cdef SCIP_RETCODE PyConsExitsol (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, SCIP_Bool restart):

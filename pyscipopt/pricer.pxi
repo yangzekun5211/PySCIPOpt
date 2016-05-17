@@ -41,6 +41,7 @@ cdef SCIP_RETCODE PyPricerRedcost (SCIP* scip, SCIP_PRICER* pricer, SCIP_Real* l
     cdef SCIP_PRICERDATA* pricerdata
     pricerdata = SCIPpricerGetData(pricer)
     PyPricer = <Pricer>pricerdata
+    PyPricer.model = <Model>weakref.proxy(<Model>SCIPgetProbData(scip))
     result_dict = PyPricer.pricerredcost()
     result[0] = result_dict.get("result", <SCIP_RESULT>result[0])
     lowerbound[0] = result_dict.get("lowerbound", <SCIP_Real>lowerbound[0])
@@ -51,6 +52,7 @@ cdef SCIP_RETCODE PyPricerFarkas (SCIP* scip, SCIP_PRICER* pricer, SCIP_RESULT* 
     cdef SCIP_PRICERDATA* pricerdata
     pricerdata = SCIPpricerGetData(pricer)
     PyPricer = <Pricer>pricerdata
+    PyPricer.model = <Model>weakref.proxy(<Model>SCIPgetProbData(scip))
     result[0] = PyPricer.pricerfarkas().get("result", <SCIP_RESULT>result[0])
     return SCIP_OKAY
 

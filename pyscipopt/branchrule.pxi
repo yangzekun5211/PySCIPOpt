@@ -41,6 +41,7 @@ cdef SCIP_RETCODE PyBranchruleExeclp (SCIP* scip, SCIP_BRANCHRULE* branchrule, S
     cdef SCIP_BRANCHRULEDATA* branchruledata
     branchruledata = SCIPbranchruleGetData(branchrule)
     PyBranchrule = <Branchrule>branchruledata
+    PyBranchrule.model = <Model>weakref.proxy(<Model>SCIPgetProbData(scip))
     result_dict = PyBranchrule.branchexeclp(allowaddcons)
     result[0] = result_dict.get("result", <SCIP_RESULT>result[0])
     return SCIP_OKAY

@@ -328,6 +328,17 @@ cdef class Node:
         #return SCIPnodeGetNumber(self.node)
 
 
+############ PROBDATA STUFF ##################
+cdef SCIP_RETCODE PyProbTrans (SCIP* scip, SCIP_PROBDATA* sourcedata, SCIP_PROBDATA** targetdata):
+    cdef Model PyModel
+    cdef Model PyTargetModel
+    PyModel = <Model>sourcedata
+    result_dict = PyModel.probtrans()
+    PyTargetModel = result_dict.get("targetdata", <Model>sourcedata)
+    targetdata[0] = <SCIP_PROBDATA *>PyTargetModel
+    Py_INCREF(PyTargetModel)
+    return SCIP_OKAY
+
 # - remove create(), includeDefaultPlugins(), createProbBasic() methods
 # - replace free() by "destructor"
 # - interface SCIPfreeProb()
@@ -340,35 +351,36 @@ cdef class Model:
     # make Model weak referentiable
     cdef object __weakref__
 
-    def __init__(self, problemName='model', defaultPlugins=True):
+    def probtrans(self):
+        return {}
+
+    def __init__(self, problemName='model', defaultPlugins=True, Model from_model = None):
         """
         Keyword arguments:
         problemName -- the name of the problem (default 'model')
         defaultPlugins -- use default plugins? (default True)
         """
-        self.create()
-        self._bestSol = None
-        if defaultPlugins:
-            self.includeDefaultPlugins()
-        self.createProbBasic(problemName)
+        if from_model is None:
+            self._bestSol = None
+            PY_SCIP_CALL( SCIPcreate(&self._scip) )
+            if defaultPlugins:
+                PY_SCIP_CALL( SCIPincludeDefaultPlugins(self._scip) )
+            self.createProbBasic(problemName)
+        else:
+            self._scip = from_model._scip
+
 
     def __dealloc__(self):
         # call C function directly, because we can no longer call this object's methods, according to
         # http://docs.cython.org/src/reference/extension_types.html#finalization-dealloc
         PY_SCIP_CALL( SCIPfree(&self._scip) )
 
-    @scipErrorHandler
-    def create(self):
-        return SCIPcreate(&self._scip)
-
-    @scipErrorHandler
-    def includeDefaultPlugins(self):
-        return SCIPincludeDefaultPlugins(self._scip)
-
-    @scipErrorHandler
     def createProbBasic(self, problemName='model'):
         n = str_conversion(problemName)
-        return SCIPcreateProbBasic(self._scip, n)
+        # stores Model in SCIP's probada
+        PY_SCIP_CALL( SCIPcreateProbBasic(self._scip, n) )
+        PY_SCIP_CALL( SCIPsetProbData(self._scip, <SCIP_PROBDATA*>self) )
+        PY_SCIP_CALL( SCIPsetProbTrans(self._scip, PyProbTrans) )
 
     @scipErrorHandler
     def freeProb(self):
