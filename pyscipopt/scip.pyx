@@ -222,7 +222,7 @@ cdef class Variable(LinExpr):
     def __richcmp__(self, other, op):
         if op == 0: # <
             return id(self) < id(other)
-        elif op == 4: # > 
+        elif op == 4: # >
             return id(self) > id(other)
         else: # interpret variable as expression
             # would like to do this, but doesn't work :-\
@@ -309,6 +309,25 @@ cdef class Constraint:
     def isStickingAtNode(self):
         return SCIPconsIsStickingAtNode(self.cons)
 
+cdef class Node:
+    cdef SCIP_NODE* node
+
+    @staticmethod
+    cdef create(SCIP_NODE* scipnode):
+        node = Node()
+        node.node = scipnode
+        return node
+
+    def __init__(self):
+        pass
+
+    def __repr__(self): # TODO
+        pass
+
+    #def getNumber(self):
+        #return SCIPnodeGetNumber(self.node)
+
+
 # - remove create(), includeDefaultPlugins(), createProbBasic() methods
 # - replace free() by "destructor"
 # - interface SCIPfreeProb()
@@ -385,6 +404,11 @@ cdef class Model:
     def feastol(self):
         """Return feasibility tolerance"""
         return SCIPfeastol(self._scip)
+
+    def getNTotalVars(self):
+        """gets number of all problem variables created during creation and solving of problem;
+           this includes also variables that were deleted in the meantime"""
+        return SCIPgetNTotalVars(self._scip)
 
 
     # Objective function
@@ -1180,6 +1204,89 @@ cdef class Model:
                                           PyBranchruleExecps, <SCIP_BRANCHRULEDATA*> branchrule))
         branchrule.model = <Model>weakref.proxy(self)
         Py_INCREF(branchrule)
+
+    # LP methods
+    def getLPObjval(self):
+        """Returns the LP objective value"""
+        return SCIPgetLPObjval(self._scip)
+
+    # FIXME: too lazy to export the LP solstats!!
+    def isLPOptimal(self):
+        """Returns if LP is optimal"""
+        return 1 == SCIPgetLPSolstat(self._scip)
+
+    # Tree methods
+    def repropagateNode(self, Node node):
+        """marks the given node to be propagated again the next time a node of its subtree is processed"""
+        PY_SCIP_CALL(SCIPrepropagateNode(self._scip, node.node))
+
+    # Statistic methods FIXME: (?)
+    def getPrimalbound(self):
+        """Returns global primal bound (obj of best sol or user obj limit)"""
+        return SCIPgetPrimalbound(self._scip)
+
+    # Local subproblem methods
+    def getLocalTransEstimate(self):
+        """Gets estimate of best primal solution w.r.t. transformed problem contained in current subtree"""
+        return SCIPgetLocalTransEstimate(self._scip)
+
+    def addPyConsNode(self, Node node, Constraint cons, Node validnode = None):
+        """adds constraint to the given node (and all of its subnodes), even if it is a global constraint;
+        It is sometimes desirable to add the constraint to a more local node (i.e., a node of larger depth) even if
+        the constraint is also valid higher in the tree, for example, if one wants to produce a constraint which is
+        only active in a small part of the tree although it is valid in a larger part.
+        In this case, one should pass the more global node where the constraint is valid as "validnode".
+        Note that the same constraint cannot be added twice to the branching tree with different "validnode" parameters.
+        If the constraint is valid at the same node as it is inserted (the usual case), one should pass NULL as "validnode".
+        If the "validnode" is the root node, it is automatically upgraded into a global constraint, but still only added to
+        the given node. If a local constraint is added to the root node, it is added to the global problem instead.
+
+        Keyword arguments:
+        node -- node where to add the cons
+        cons -- the Python constraint
+        validnode -- node at which constraint is valid
+        """
+        if validnode is None:
+            PY_SCIP_CALL(SCIPaddConsNode(self._scip, node.node, cons.cons, NULL))
+        else:
+            PY_SCIP_CALL(SCIPaddConsNode(self._scip, node.node, cons.cons, validnode.node))
+        Py_INCREF(cons)
+
+    # Branching methods
+    #TODO: make me nice, and include all my options
+    def getLPBranchCands(self, getsols=False, getfracs=True, getall=False, getprio=True):
+        """Gets branching candidates for LP solution branching along with solution values,
+        fractionalities TODO: etc
+
+        Keyword arguments:
+        getsols -- if solution value of branching variables should be returned
+        getfracs -- if fractionality of branching variables should be returned
+        getall -- if all branching variables should be returned
+        getprio -- if only variables with maximal priority should be returned
+        """
+        assert getsols == False and getfracs == True and getall == False and getprio == True
+        cdef SCIP_VAR** vars
+        cdef SCIP_Real* lpcandsfrac
+        cdef int npriolpcands
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &vars, NULL, &lpcandsfrac, NULL, &npriolpcands, NULL))
+        PyVars = []
+        fracs = []
+        for i in range(npriolpcands):
+            PyVars.append(<Variable>SCIPvarGetData(vars[i]))
+            fracs.append(lpcandsfrac[i])
+        return PyVars, fracs
+
+    def createChild(self, nodeselprio, estimate):
+        """creates a child node of the focus node
+
+        Keyword arguments:
+        nodeselprio -- node selection priority of new node
+        estimate -- estimate for (transformed) objective value of best feasible solution in subtree
+        """
+        cdef SCIP_NODE* node
+        PY_SCIP_CALL(SCIPcreateChild(self._scip, &node, <SCIP_Real>nodeselprio, <SCIP_Real>estimate))
+        return Node.create(node)
+
 
     # Solution functions
 

@@ -129,6 +129,16 @@ cdef extern from "scip/scip.h":
         SCIP_HEURTIMING_DURINGPRESOLLOOP  = 0x200u
         SCIP_HEURTIMING_AFTERPROPLOOP     = 0x400u
 
+    ctypedef enum SCIP_LPSOLSTAT:
+        SCIP_LPSOLSTAT_NOTSOLVED    = 0
+        SCIP_LPSOLSTAT_OPTIMAL      = 1
+        SCIP_LPSOLSTAT_INFEASIBLE   = 2
+        SCIP_LPSOLSTAT_UNBOUNDEDRAY = 3
+        SCIP_LPSOLSTAT_OBJLIMIT     = 4
+        SCIP_LPSOLSTAT_ITERLIMIT    = 5
+        SCIP_LPSOLSTAT_TIMELIMIT    = 6
+        SCIP_LPSOLSTAT_ERROR        = 7
+
     ctypedef enum SCIP_EXPROP:
         SCIP_EXPR_VARIDX    =  1
         SCIP_EXPR_CONST     =  2
@@ -285,6 +295,9 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_EXPR:
         pass
 
+    ctypedef struct SCIP_VARDATA:
+        pass
+
     ctypedef struct SCIP_EXPRTREE:
         pass
 
@@ -315,9 +328,17 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPsetObjlimit(SCIP* scip, SCIP_Real objlimit)
     SCIP_RETCODE SCIPsetPresolving(SCIP* scip, SCIP_PARAMSETTING paramsetting, SCIP_Bool quiet)
     SCIP_RETCODE SCIPwriteOrigProblem(SCIP* scip, char* filename, char* extension, SCIP_Bool genericnames)
+    SCIP_RETCODE SCIPwriteTransProblem(SCIP* scip, char* filename, char* extension, SCIP_Bool genericnames)
     SCIP_STATUS SCIPgetStatus(SCIP* scip)
     SCIP_Real SCIPepsilon(SCIP* scip)
     SCIP_Real SCIPfeastol(SCIP* scip)
+    int SCIPgetNTotalVars(SCIP* scip)
+
+    # Probdata methods
+    SCIP_RETCODE SCIPsetProbData(SCIP* scip, SCIP_PROBDATA* probdata)
+    SCIP_RETCODE SCIPsetProbTrans(SCIP* scip,
+                                   SCIP_RETCODE (*probtrans) (SCIP* scip, SCIP_PROBDATA* sourcedata, SCIP_PROBDATA** targetdata))
+    SCIP_PROBDATA* SCIPgetProbData(SCIP* scip)
 
     # Solve Methods
     SCIP_RETCODE SCIPsolve(SCIP* scip)
@@ -333,7 +354,9 @@ cdef extern from "scip/scip.h":
                                     SCIP_VARTYPE vartype)
     SCIP_RETCODE SCIPchgVarObj(SCIP* scip, SCIP_VAR* var, SCIP_Real newobj)
     SCIP_RETCODE SCIPchgVarLb(SCIP* scip, SCIP_VAR* var, SCIP_Real newbound)
+    SCIP_RETCODE SCIPchgVarLbLazy(SCIP* scip, SCIP_VAR* var, SCIP_Real newbound)
     SCIP_RETCODE SCIPchgVarUb(SCIP* scip, SCIP_VAR* var, SCIP_Real newbound)
+    SCIP_RETCODE SCIPchgVarUbLazy(SCIP* scip, SCIP_VAR* var, SCIP_Real newbound)
     SCIP_RETCODE SCIPchgVarType(SCIP* scip, SCIP_VAR* var, SCIP_VARTYPE vartype, SCIP_Bool* infeasible)
     SCIP_RETCODE SCIPcaptureVar(SCIP* scip, SCIP_VAR* var)
     SCIP_RETCODE SCIPaddPricedVar(SCIP* scip, SCIP_VAR* var, SCIP_Real score)
@@ -352,6 +375,8 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPvarIsInLP(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLbLocal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetUbLocal(SCIP_VAR* var)
+    SCIP_VARDATA* SCIPvarGetData(SCIP_VAR* var)
+    void SCIPvarSetData(SCIP_VAR* var, SCIP_VARDATA* vardata)
 
     # Constraint Methods
     SCIP_RETCODE SCIPcaptureCons(SCIP* scip, SCIP_CONS* cons)
@@ -397,6 +422,25 @@ cdef extern from "scip/scip.h":
 
     # Dual Solution Methods
     SCIP_Real SCIPgetDualbound(SCIP* scip)
+
+    # LP Methods
+    SCIP_Real SCIPgetLPObjval(SCIP* scip)
+    SCIP_LPSOLSTAT SCIPgetLPSolstat(SCIP* scip)
+
+    # Tree methods
+    SCIP_RETCODE SCIPrepropagateNode(SCIP* scip, SCIP_NODE* node)
+
+    # Statistic methods
+    SCIP_Real SCIPgetPrimalbound(SCIP* scip)
+
+    # Local subproblem methods
+    SCIP_Real SCIPgetLocalTransEstimate(SCIP* scip)
+    SCIP_RETCODE SCIPaddConsNode(SCIP* scip, SCIP_NODE* node, SCIP_CONS* cons, SCIP_NODE* validnode)
+
+    # Branching Methods
+    SCIP_RETCODE SCIPgetLPBranchCands(SCIP* scip, SCIP_VAR*** lpcands, SCIP_Real** lpcandssol, SCIP_Real** lpcandsfrac,
+                                      int* nlpcands, int* npriolpcands, int* nfracimplvars)
+    SCIP_RETCODE SCIPcreateChild(SCIP* scip, SCIP_NODE** node, SCIP_Real nodeselprio, SCIP_Real estimate)
 
     # Reader plugin
     SCIP_RETCODE SCIPincludeReader(SCIP* scip,
