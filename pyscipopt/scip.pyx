@@ -479,8 +479,8 @@ cdef class Model:
         """
         PY_SCIP_CALL(SCIPsetPresolving(self._scip, setting, True))
 
-    # Write original problem to file
-    def writeProblem(self, filename='origprob.cip'):
+    # Write original or transformed problem to file FIXME: should be splitted?
+    def writeProblem(self, filename='origprob.cip', original = True):
         """Write original problem to a file.
 
         Keyword arguments:
@@ -492,8 +492,12 @@ cdef class Model:
         else:
             ext = str_conversion(filename.split('.')[1])
         fn = str_conversion(filename)
-        PY_SCIP_CALL(SCIPwriteOrigProblem(self._scip, fn, ext, False))
-        print('wrote original problem to file ' + filename)
+        if original:
+            PY_SCIP_CALL(SCIPwriteOrigProblem(self._scip, fn, ext, False))
+            print('wrote original problem to file ' + filename)
+        else:
+            PY_SCIP_CALL(SCIPwriteTransProblem(self._scip, fn, ext, False))
+            print('wrote transformed problem to file ' + filename)
 
     # Variable Functions
 
@@ -532,6 +536,41 @@ cdef class Model:
         PY_SCIP_CALL(SCIPreleaseVar(self._scip, &scip_var))
         return pyVar
 
+    def addPyVar(self, Variable PyVar, name='', vtype='C', lb=0.0, ub=None, obj=0.0, pricedVar = False):
+        """Create a new variable.
+
+        Keyword arguments:
+        name -- the name of the variable (default '')
+        vtype -- the typ of the variable (default 'C')
+        lb -- the lower bound of the variable (default 0.0)
+        ub -- the upper bound of the variable (default None)
+        obj -- the objective value of the variable (default 0.0)
+        pricedVar -- is the variable a pricing candidate? (default False)
+        """
+        cname = str_conversion(name)
+        if ub is None:
+            ub = SCIPinfinity(self._scip)
+        cdef SCIP_VAR* scip_var
+        if vtype in ['C', 'CONTINUOUS']:
+            PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &PyVar.var, cname, lb, ub, obj, SCIP_VARTYPE_CONTINUOUS))
+        elif vtype in ['B', 'BINARY']:
+            lb = 0.0
+            ub = 1.0
+            PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &PyVar.var, cname, lb, ub, obj, SCIP_VARTYPE_BINARY))
+        elif vtype in ['I', 'INTEGER']:
+            PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &PyVar.var, cname, lb, ub, obj, SCIP_VARTYPE_INTEGER))
+        else:
+            raise Warning("unrecognized variable type")
+
+        if pricedVar:
+            PY_SCIP_CALL(SCIPaddPricedVar(self._scip, PyVar.var, 1.0))
+        else:
+            PY_SCIP_CALL(SCIPaddVar(self._scip, PyVar.var))
+
+        # store var as vardata #FIXME, it the functionality correct? the code is not:
+        # those Basic things shouldn't exist in Python
+        SCIPvarSetData(PyVar.var, <SCIP_VARDATA*>PyVar)
+
     def releaseVar(self, Variable var):
         """Release the variable.
 
@@ -547,7 +586,7 @@ cdef class Model:
         var -- the variable
         """
         cdef SCIP_VAR* _tvar
-        PY_SCIP_CALL(SCIPtransformVar(self._scip, var.var, &_tvar))
+        PY_SCIP_CALL(SCIPtransformVar(self._scip, var.var, &_tvar))  # FIXME inconsistent with getTransformedCons
         return Variable.create(_tvar, SCIPvarGetName(_tvar).decode("utf-8"))
 
     def addVarLocks(self, Variable var, nlocksdown, nlocksup):
@@ -571,7 +610,7 @@ cdef class Model:
            lb = -SCIPinfinity(self._scip)
         PY_SCIP_CALL(SCIPchgVarLb(self._scip, var.var, lb))
 
-    def chgVarUb(self, Variable var, ub=None):
+    def chgVarUb(self, Variable var, ub=None, lazy=False): #FIXME makes sense or better to have different?
         """Changes the upper bound of the specified variable.
 
         Keyword arguments:
@@ -580,7 +619,10 @@ cdef class Model:
         """
         if ub is None:
            ub = SCIPinfinity(self._scip)
-        PY_SCIP_CALL(SCIPchgVarUb(self._scip, var.var, ub))
+        if lazy:
+            PY_SCIP_CALL(SCIPchgVarUbLazy(self._scip, var.var, ub))
+        else:
+            PY_SCIP_CALL(SCIPchgVarUb(self._scip, var.var, ub))
 
     def chgVarType(self, Variable var, vtype):
         cdef SCIP_Bool infeasible
@@ -930,7 +972,7 @@ cdef class Model:
         cons -- the constraint
         """
         cdef SCIP_CONS* transcons
-        PY_SCIP_CALL(SCIPgetTransformedCons(self._scip, cons.cons, &transcons))
+        PY_SCIP_CALL(SCIPtransformCons(self._scip, cons.cons, &transcons))
 
         return Constraint.create(transcons, SCIPconsGetName(transcons).decode("utf-8"))
 
