@@ -80,8 +80,27 @@ except:
 #   The "original graph" is the pre-processed graph.
 # END
 
-#FIXME delete
-#transmodel = 0
+
+# To test we receive the correct SCIP
+originalscip = None
+transformedscip = None
+
+####### local helper functions
+def quotient_to_parent(quotient_subset_of_nodes):
+    parent_subset_of_nodes = set()
+    for quotient_node in quotient_subset_of_nodes:
+        parent_subset_of_nodes.update(quotient_node)
+    return parent_subset_of_nodes
+
+def get_node_class(H, node1):
+    for n in H.nodes_iter():
+        if node1 in n:
+            return n
+
+def same_node(H, node1, node2):
+    n = get_node_class(H, node1)
+    return node2 in n
+######
 
 ##### THIS WOULD BE THE EQUIVALENT OF PROBDATA
 class Coloring(Model):
@@ -91,41 +110,41 @@ class Coloring(Model):
             super(Coloring, self).__init__() # creates the SCIP: maybe there should be a way to pass the plugins one wants to include
             print("scip is inited, continue")
 
-            # here we take care of the data
+            # initialize the data
             self.originalgraph = graph
             self.graph = graph.copy()
-            self.preprocess_graph()
             self.vars = []
+            self.constraints = {}
+            self.conshldr = None
         else:
             super(Coloring, self).__init__(from_model=from_model)
         leaving()
 
     def probtrans(self):
         entering()
-        # create "new" model FIXME: correct way of doing this? had to alter the init method!
+        # create transmodel
+        # FIXME: correct way of doing this? had to alter the init method!
         print("original model received with id: ", id(self))
         print(self)
         targetmodel = Coloring(from_model=self)
         print("transformed model's id is ", id(targetmodel))
 
-        # copy data
-        print("copying data to transformed model")
+        # copy graphs (we don't actually need original graph!)
         targetmodel.originalgraph = self.originalgraph.copy()
         targetmodel.graph = self.graph.copy()
-        print("graphs done")
+
+        # transform constraint
         targetmodel.constraints = {}
         for v in self.graph.nodes_iter():
             targetmodel.constraints[v] = self.getTransformedCons(self.constraints[v])
-        print("trans conss done")
+
+        # transform variables
         targetmodel.vars = []
         for var in self.vars:
             targetmodel.vars.append(self.transformVar(var))
-        print("trans vars done")
 
-        # copy handler!!!!
+        # store conshdlr in transmodel
         targetmodel.conshdlr = self.conshdlr
-        #FIXME delete
-        #transmodel = targetmodel
         leaving()
         return {"targetdata" : targetmodel}
 
@@ -176,11 +195,9 @@ class Coloring(Model):
     def set_up_constraints(self):
         entering()
         # add empty set covering constraints; this is a dictionary mapping nodes to constraints
-        constraints = {}
         for n in self.graph.nodes_iter():
-            constraints[n] = self.addCons({}, name="Node-Constraint"+str(n), lhs=1, modifiable = True, dynamic=True)
+            self.constraints[n] = self.addCons({}, name="Node-Constraint"+str(n), lhs=1, modifiable = True, dynamic=True)
         # store them in probdata
-        self.constraints = constraints
         leaving()
 ########### END THE PROBDATA
 
@@ -190,7 +207,11 @@ class StableSetVar(Variable):
     def __init__(self, scip, stable_set):
         self.stable_set = stable_set
         self.scip = scip #this is model
-    def __del__(self): # FIXME
+    def __del__(self):
+        # FIXME: this should be the __dealloc__ of Variable. For that to work,
+        # Variable would have to store (a weak reference of) the Model.
+        # Also, only vars added should be released. Currently, the only way of
+        # creating vars is by adding them. Do we lose something by doing that?
         self.scip.releaseVar(self)
 
 ########### END THE VARIABLES
@@ -200,10 +221,7 @@ class ColoringBranch(Branchrule):
     # local functions (?)
     def find_nodes_to_branch(self, scip, s1):
         entering()
-        print("looking for nodes (of graph) to branch on var: ", dir(s1))
-        print("stable set ", s1.stable_set)
         for node1 in s1.stable_set: # FIXME: wouldn't we actually need any node???
-            print("taking node1  ", node1)
             # FIXME: ideally, we would get the constraint of the node and iterate over its variables (this is
             #        the same as iterating over the stable sets which contain s1), but there is this problem on how to
             #        get constraints from scip
@@ -214,10 +232,7 @@ class ColoringBranch(Branchrule):
                     if node2 not in s1.stable_set:
                         leaving()
                         return node1, node2
-            #for var in scip.vars:
-            #    print("other vars stable set ", var.stable_set)
-            #    if node1 in var.stable_set:
-            #        print("both vars share the node")
+        raise ValueError("Should not be here!")
 
     def branchexeclp(self, allowaddcons):
         entering()
@@ -267,19 +282,11 @@ class ColoringBranch(Branchrule):
     def branchexecps(self, allowaddcons):
         entering()
         print("I HOPE I DON'T HAVE TO IMPLEMENT THIS GUY!!!")
+        raise ValueError("Don't be lazy; implement me!")
         leaving()
 ########### END BRANCHING
 
 ############ THE CONSHDLR FOR STOREGRAPH CONSTRAINTS
-def get_node_class(H, node1):
-    for n in H.nodes_iter():
-        if node1 in n:
-            return n
-
-def same_node(H, node1, node2):
-    n = get_node_class(H, node1)
-    return node2 in n
-
 def getCurrentGraph(scip):
     conshdlr = scip.conshdlr #this is the equivalent of scipfindconshdlr
     assert len(conshdlr.stack) > 0
@@ -298,8 +305,8 @@ class StoreGraphConshdlr(Conshdlr):
     # wouldn't have to bother storing the parent's graph (we need node1 and node2, see prop)
     def createCons(self, name, node1, node2, parent_graph, type, stickingnode):
         entering()
-        cons = self.model.createCons(self, name, stickingatnode=True) #FIXME: this is very nasty
-        cons.data = {} # don't like this....
+        cons = self.model.createCons(self, name, stickingatnode=True)
+        cons.data = {} # FIXME: I think I don't like this. For no other object we use the `data` field...
         cons.data["node1"] = node1
         cons.data["node2"] = node2
         cons.data["parent_graph"] = parent_graph
@@ -314,11 +321,6 @@ class StoreGraphConshdlr(Conshdlr):
     # initsol: branch and bound is going to start now, so we create the constraint containing the graph of the root node
     def consinitsol(self, constraints):
         entering()
-        print("received conshdlr: ",id(self))
-        print("received model: ",id(self.model))
-        #print("received scip: ",id(scip))
-        #print("transmodel : ",id(transmodel))
-        #assert transmodel == scip
         cons = self.createCons("root", -1,-1, None, "root", None)
         cons.data["created"] = True
         cons.data["current_graph"] = networkx.quotient_graph(self.model.graph, lambda u,v: u == v)
@@ -343,10 +345,10 @@ class StoreGraphConshdlr(Conshdlr):
             node1        = consdata["node1"]
             node2        = consdata["node2"]
             parent_graph = consdata["parent_graph"]
-            print("creating consdata for cons: ", constraint)
-            print("node1 and node2: ", node1, node2)
-            print("parent graphs nodes ", parent_graph.nodes())
-            print("parent graphs edges ", parent_graph.edges())
+            #print("creating consdata for cons: ", constraint)
+            #print("node1 and node2: ", node1, node2)
+            #print("parent graphs nodes ", parent_graph.nodes())
+            #print("parent graphs edges ", parent_graph.edges())
 
             if type == "same":
                 consdata["current_graph"] = networkx.quotient_graph(self.model.graph,
@@ -354,17 +356,15 @@ class StoreGraphConshdlr(Conshdlr):
             elif type == "diff":
                 node1_class = get_node_class(parent_graph, node1)
                 node2_class = get_node_class(parent_graph, node2)
-                print("nodeclass1 ", node1_class)
-                print("nodeclass2 ", node2_class)
                 assert node1_class != node2_class
+
                 consdata["current_graph"] = parent_graph.copy()
                 consdata["current_graph"].add_edge(node1_class, node2_class)
             else:
                 raise ValueError("type %s unkonwn"%type)
+            consdata["created"] = True
         elif consdata["npropagatedvars"] < self.model.getNTotalVars() and consdata["type"] != "root":
             self.model.repropagateNode(constraint.data["stickingatnode"])
-
-        consdata["created"] = True
         leaving()
 
     # here we just remove the constraint from the stack
@@ -379,7 +379,7 @@ class StoreGraphConshdlr(Conshdlr):
     # or DIFF(node1, node2))
     def consprop(self, constraints, nusefulconss, nmarkedconss, proptiming):
         entering()
-        print("selfs scip has nvars = ", len(self.model.vars))
+        # TODO assert stuff
         # get the only constraint we care about
         consdata = self.stack[-1].data
         if consdata["type"] == "diff":
@@ -396,7 +396,7 @@ class StoreGraphConshdlr(Conshdlr):
         leaving()
         return {"result": SCIP_RESULT.DIDNOTFIND}
 
-    # fundamental callbacks do nothing
+    # fundamental callbacks do nothing (just asserts)
     def consenfolp(self, constraints, nusefulconss, solinfeasible):
         entering()
         leaving()
@@ -416,8 +416,6 @@ class ColoringPricer(Pricer):
     # set up some basic data
     def __init__(self):
         entering()
-        self.maxvarsround = 2     # maximal number of vars created per round UNUSED
-        self.nstablesetsfound = 0 # number of improving stable sets found
         self.nround = 0
         self.max_rounds = 10 # how to set parameter?
         self.current_graph = None
@@ -427,7 +425,6 @@ class ColoringPricer(Pricer):
     def pricerfarkas(self):
         entering()
         # get current node's graph
-        print("getting stored graph")
         G = getCurrentGraph(self.model)
 
         # get all stable sets (all vars)
@@ -439,19 +436,13 @@ class ColoringPricer(Pricer):
             if var.isInLP() and var.getUbLocal() > 0.5: # FIXME: this is different from the c example!
                 colored_nodes.update(var.stable_set)
 
-        print("looking for max st sets")
         # build maximal stable sets until all nodes are colored
         uncolored_nodes = set(self.model.graph.nodes()).difference(colored_nodes)
         while len(uncolored_nodes) > 0:
             # build maximal stable set
-            #print("nodes ",G.nodes())
-            #print("edges ",G.edges())
             node_class = get_node_class(G, uncolored_nodes.pop())
-            #print("node class", node_class)
             quotients_stable_set = networkx.maximal_independent_set(G, [node_class])
-            new_stable_set = set()
-            for node_set in quotients_stable_set:
-                new_stable_set.update(node_set)
+            new_stable_set = quotient_to_parent(quotients_stable_set)
 
             # update uncolored nodes
             uncolored_nodes -= new_stable_set
@@ -460,25 +451,19 @@ class ColoringPricer(Pricer):
             # FIXME: - check that it is actually new
             #        - the c code marks variable as deletable and has an event handler
             #          for when a variable is deleted... we don't do any of that here
-            print("found max stable set, creating var now")
             newVar = StableSetVar(self.model, new_stable_set)
             self.model.addPyVar(newVar, name="StableVar"+str(len(vars)), vtype="B", obj = 1, pricedVar = True)
-            print("done creating var appending")
             vars.append(newVar)
-            print("done appending adding PyVar!")
-            print("done adding PyVar!")
             self.model.chgVarUb(newVar, 1.0, lazy=True)
 
             # add variable to constraints
             for v in new_stable_set:
                 self.model.addConsCoeff(self.model.constraints[v], newVar, 1.0)
-        print("all nodes are colored!")
         leaving()
         return {'result':SCIP_RESULT.SUCCESS}
 
     # FIXME: make me more like c (?)
     def keep_on_pricing(self):
-        print("should I keep on pricing? round ", self.nround)
         if self.current_graph == getCurrentGraph(self.model):
             self.nround += 1
             return self.nround < self.max_rounds
@@ -511,14 +496,10 @@ class ColoringPricer(Pricer):
         max_stable_set = []
         for quotients_stable_set in networkx.enumerate_all_cliques(networkx.complement(G)):
             # transform quotient's stable set to original's stable set
-            stable_set = set()
-            for node_set in quotients_stable_set:
-                stable_set.update(node_set)
+            stable_set = quotient_to_parent(quotients_stable_set)
 
-            # compute value
-            stable_value = 0 # what is the pythonic way of doing this?
-            for n in stable_set:
-                stable_value += pi[n]
+            # compute weight of stable set
+            stable_value = sum(pi[n] for n in stable_set)
 
             if stable_value > max_stable_value:
                 max_stable_value = stable_value
@@ -530,7 +511,7 @@ class ColoringPricer(Pricer):
         print("round %d, max stable set value found: %g"%(self.nround,max_stable_value))
         # add maximum only if not already inside
         if max_stable_value > 1 + 1e-6: #FIXME
-            self.model.writeProblem(filename="coloring_round_%s.cip"%(str(self.nround)), original=False)
+            #self.model.writeProblem(filename="coloring_round_%s.cip"%(str(self.nround)), original=False)
             if max_stable_set not in list(var.stable_set for var in self.model.vars):
                 # create var associated with the max stable set FIXME: code repetition
                 newVar = StableSetVar(self.model, max_stable_set)
@@ -580,9 +561,11 @@ def create_problem():
     print("object created id: ", id(color_scip))
     color_scip.printVersion() # just to check that scip is not null!
 
-    # set up constraints: a bunch of empty setcover constraints (sum x_i >= 1)
+    # preprocess graph and set up constraints
+    print("preprocess graph")
+    color_scip.preprocess_graph()
     print("create LP")
-    color_scip.set_up_constraints()
+    color_scip.set_up_constraints() #a bunch of empty setcover constraints (sum x_i >= 1)
 
     # tell scip objective is integral
     color_scip.setObjIntegral()
