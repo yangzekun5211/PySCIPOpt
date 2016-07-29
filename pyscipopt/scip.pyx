@@ -1550,6 +1550,12 @@ cdef class Model:
         SCIPsetMessagehdlrQuiet(self._scip, quiet)
 
     # Parameter Methods
+    # Is there a way to mimic the valueptr functionality?
+    def addRealParam(self, name, desc, defaultvalue, minvalue, maxvalue, isadvanced = False):
+        """creates a SCIP_Real parameter, sets it to its default value, and adds it to the parameter set"""
+        n = str_conversion(name)
+        d = str_conversion(desc)
+        PY_SCIP_CALL(SCIPaddRealParam(self._scip, n, d, NULL, isadvanced, defaultvalue, minvalue, maxvalue, NULL, NULL))
 
     def setBoolParam(self, name, value):
         """Set a boolean-valued parameter.

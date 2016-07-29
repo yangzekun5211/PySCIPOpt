@@ -198,6 +198,12 @@ cdef extern from "scip/scip.h":
     ctypedef struct SCIP_READERDATA:
         pass
 
+    ctypedef struct SCIP_PARAM:
+        pass
+
+    ctypedef struct SCIP_PARAMDATA:
+        pass
+
     ctypedef struct SCIP_PROBDATA:
         pass
 
@@ -679,6 +685,7 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPreadParams(SCIP* scip, char* file)
     SCIP_RETCODE SCIPreadProb(SCIP* scip, char* file, char* extension)
     SCIP_RETCODE SCIPsetEmphasis(SCIP* scip, SCIP_PARAMEMPHASIS paramemphasis, SCIP_Bool quiet);
+    SCIP_RETCODE SCIPaddRealParam(SCIP* scip, const char* name, const char* desc, SCIP_Real* valueptr, SCIP_Bool isadvanced, SCIP_Real defaultvalue, SCIP_Real minvalue, SCIP_Real maxvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
 
     # LPI Functions
     SCIP_RETCODE SCIPlpiCreate(SCIP_LPI** lpi, SCIP_MESSAGEHDLR* messagehdlr, const char* name, SCIP_OBJSENSE objsen)
