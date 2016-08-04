@@ -834,14 +834,14 @@ cdef class Model:
     def addPoolCut(self, Row row not None):
         PY_SCIP_CALL(SCIPaddPoolCut(self._scip, row.row))
 
-    def getCutEfficacy(self, Solution sol, Row cut not None):
+    def getCutEfficacy(self, Row cut not None, Solution sol = None):
         return SCIPgetCutEfficacy(self._scip, NULL if sol is None else sol.sol, cut.row)
 
-    def isCutEfficacious(self, Solution sol, Row cut not None):
+    def isCutEfficacious(self, Row cut not None, Solution sol = None):
         """ returns whether the cut's efficacy with respect to the given primal solution or the current LP solution is greater than the minimal cut efficacy"""
         return SCIPisCutEfficacious(self._scip, NULL if sol is None else sol.sol, cut.row)
 
-    def addCut(self, Solution sol, Row cut not None, forcecut = False):
+    def addCut(self, Row cut not None, Solution sol = None, forcecut = False):
         """adds cut to separation storage and returns whether cut has been detected to be infeasible for local bounds"""
         cdef SCIP_Bool infeasible
         PY_SCIP_CALL(SCIPaddCut(self._scip, NULL if sol is None else sol.sol, cut.row, forcecut, &infeasible))

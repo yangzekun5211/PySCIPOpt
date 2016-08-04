@@ -244,7 +244,7 @@ class GMI(Sepa):
 
                 # Only take efficacious cuts, except for cuts with one non-zero coefficient (= bound changes)
                 # the latter cuts will be handeled internally in sepastore.
-                if cut.getNNonz() == 1 or scip.isCutEfficacious(None, cut):
+                if cut.getNNonz() == 1 or scip.isCutEfficacious(cut):
                     #print(" -> gomory cut for <%s>:  rhs=%f, eff=%f"%(cols[c].getVar() if c >= 0 else rows[-c-1].getName(),
                         #cutrhs, scip.getCutEfficacy(None, cut)))
 
@@ -257,7 +257,7 @@ class GMI(Sepa):
                     # flush all changes before adding the cut
                     scip.flushRowExtensions(cut)
 
-                    infeasible = scip.addCut(None, cut, forcecut=True)
+                    infeasible = scip.addCut(cut, forcecut=True)
 
                     if infeasible:
                        result = SCIP_RESULT.CUTOFF
