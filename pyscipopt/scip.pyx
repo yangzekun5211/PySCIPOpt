@@ -206,6 +206,9 @@ cdef class Column:
     def getLb(self):
         return SCIPcolGetLb(self.col)
 
+    def getUb(self):
+        return SCIPcolGetUb(self.col)
+
 cdef class Row:
     """Base class holding a pointer to corresponding SCIP_ROW"""
     cdef SCIP_ROW* row
