@@ -683,10 +683,15 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPsetCharParam(SCIP* scip, char* name, char value)
     SCIP_RETCODE SCIPsetStringParam(SCIP* scip, char* name, char* value)
     SCIP_RETCODE SCIPreadParams(SCIP* scip, char* file)
+    SCIP_RETCODE SCIPwriteParams(SCIP* scip, char* filename, SCIP_Bool comments, SCIP_Bool onlychanged)
     SCIP_RETCODE SCIPreadProb(SCIP* scip, char* file, char* extension)
     SCIP_RETCODE SCIPsetEmphasis(SCIP* scip, SCIP_PARAMEMPHASIS paramemphasis, SCIP_Bool quiet);
     SCIP_RETCODE SCIPaddRealParam(SCIP* scip, const char* name, const char* desc, SCIP_Real* valueptr, SCIP_Bool isadvanced, SCIP_Real defaultvalue, SCIP_Real minvalue, SCIP_Real maxvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
+    SCIP_RETCODE SCIPaddIntParam(SCIP* scip, const char* name, const char* desc, int* valueptr, SCIP_Bool isadvanced, int defaultvalue, int minvalue, int maxvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
     SCIP_RETCODE SCIPaddBoolParam(SCIP* scip, const char* name, const char* desc, SCIP_Bool* valueptr, SCIP_Bool isadvanced, SCIP_Bool defaultvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
+    SCIP_RETCODE SCIPgetBoolParam(SCIP* scip, const char* name, SCIP_Bool* value)
+    SCIP_RETCODE SCIPgetIntParam(SCIP* scip, const char* name, int* value)
+    SCIP_RETCODE SCIPgetRealParam(SCIP* scip, const char* name, SCIP_Real* value)
 
     # LPI Functions
     SCIP_RETCODE SCIPlpiCreate(SCIP_LPI** lpi, SCIP_MESSAGEHDLR* messagehdlr, const char* name, SCIP_OBJSENSE objsen)

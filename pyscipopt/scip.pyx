@@ -1557,6 +1557,12 @@ cdef class Model:
         d = str_conversion(desc)
         PY_SCIP_CALL(SCIPaddRealParam(self._scip, n, d, NULL, isadvanced, defaultvalue, minvalue, maxvalue, NULL, NULL))
 
+    def addIntParam(self, name, desc, defaultvalue, minvalue, maxvalue, isadvanced = False):
+        """creates a int parameter, sets it to its default value, and adds it to the parameter set"""
+        n = str_conversion(name)
+        d = str_conversion(desc)
+        PY_SCIP_CALL(SCIPaddIntParam(self._scip, n, d, NULL, isadvanced, defaultvalue, minvalue, maxvalue, NULL, NULL))
+
     def addBoolParam(self, name, desc, defaultvalue, isadvanced = False):
         """creates a SCIP_Bool parameter, sets it to its default value, and adds it to the parameter set"""
         n = str_conversion(name)
@@ -1631,6 +1637,38 @@ cdef class Model:
         """
         absfile = str_conversion(abspath(file))
         PY_SCIP_CALL(SCIPreadParams(self._scip, absfile))
+
+    def writeParams(self, filename, onlychanged = False):
+        """Writes all parameters in the parameter set to a file.
+
+        Keyword arguments:
+        filename -- file name or None for stdout
+        onlychanged -- should only those parameters be written that are changed from their default value (default False)
+        """
+        if filename is None:
+            PY_SCIP_CALL(SCIPwriteParams(self._scip, NULL, True, onlychanged))
+        else:
+            fn = str_conversion(filename)
+            PY_SCIP_CALL(SCIPwriteParams(self._scip, fn, True, onlychanged))
+            print('wrote settings to ' + filename)
+
+    def getBoolParam(self, name):
+        cdef SCIP_Bool value
+        n = str_conversion(name)
+        PY_SCIP_CALL(SCIPgetBoolParam(self._scip, n, &value))
+        return value
+
+    def getIntParam(self, name):
+        cdef int value
+        n = str_conversion(name)
+        PY_SCIP_CALL(SCIPgetIntParam(self._scip, n, &value))
+        return value
+
+    def getRealParam(self, name):
+        cdef SCIP_Real value
+        n = str_conversion(name)
+        PY_SCIP_CALL(SCIPgetRealParam(self._scip, n, &value))
+        return value
 
     def setEmphasis(self, paraemphasis, quiet = True):
         """Set emphasis settings
