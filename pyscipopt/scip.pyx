@@ -1700,6 +1700,39 @@ cdef class Model:
             extension = str_conversion(extension)
             PY_SCIP_CALL(SCIPreadProb(self._scip, absfile, extension))
 
+    # experimental function to have scip's linear constraints as if they were created with python
+    def getLinearConssAsLinCons(self):
+        """Retrieve all linear constraints as python constraints."""
+        cdef SCIP_CONS** _conss
+        cdef SCIP_CONS* _cons
+        cdef Constraint c
+        cdef int _nconss
+        cdef SCIP_VAR** _vars
+        cdef int _nvars
+        cdef SCIP_Real lhs
+        cdef SCIP_Real rhs
+        cdef SCIP_Real* vals
+        cdef SCIP_CONSHDLR* _conshdlr
+
+        _conshdlr = SCIPfindConshdlr(self._scip, str_conversion("linear"))
+
+        _conss = SCIPconshdlrGetConss(_conshdlr)
+        _nconss = SCIPconshdlrGetNConss(_conshdlr)
+
+        conss = []
+        for i in range(_nconss):
+            # get consdata
+            _cons = _conss[i]
+            lhs = SCIPgetLhsLinear(self._scip, _cons)
+            rhs = SCIPgetRhsLinear(self._scip, _cons)
+            _vars = SCIPgetVarsLinear(self._scip, _cons)
+            _vals = SCIPgetValsLinear(self._scip, _cons)
+            _nvars = SCIPgetNVarsLinear(self._scip, _cons)
+
+            # create python constraint and append it to conss
+            conss.append(ExprCons(quicksum(_vals[j] * Variable.create(_vars[j]) for j in range(_nvars)), lhs, rhs))
+        return conss
+
 # debugging memory management
 def is_memory_freed():
     return BMSgetMemoryUsed() == 0
