@@ -336,6 +336,7 @@ cdef extern from "scip/scip.h":
     # Solve Methods
     SCIP_RETCODE SCIPsolve(SCIP* scip)
     SCIP_RETCODE SCIPfreeTransform(SCIP* scip)
+    SCIP_RETCODE SCIPpresolve(SCIP* scip)
 
     # Variable Methods
     # the method SCIP_Real SCIPgetVarSol(SCIP* scip, SCIP_VAR* var) is redundant: use SCIPgetSolVal instead

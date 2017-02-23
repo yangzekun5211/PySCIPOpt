@@ -1187,6 +1187,10 @@ cdef class Model:
         PY_SCIP_CALL(SCIPsolve(self._scip))
         self._bestSol = Solution.create(SCIPgetBestSol(self._scip))
 
+    def presolve(self):
+        """Presolve the problem."""
+        PY_SCIP_CALL(SCIPpresolve(self._scip))
+
     def includePricer(self, Pricer pricer, name, desc, priority=1, delay=True):
         """Include a pricer.
 
