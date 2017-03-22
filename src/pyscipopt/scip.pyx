@@ -326,6 +326,22 @@ cdef class Variable(Expr):
         scip_col = SCIPvarGetCol(self.var)
         return Column.create(scip_col)
 
+    def getLbOriginal(self):
+        """Returns original lower bound of variable"""
+        return SCIPvarGetLbOriginal(self.var)
+
+    def getUbOriginal(self):
+        """Returns original upper bound of variable"""
+        return SCIPvarGetUbOriginal(self.var)
+
+    def getLbGlobal(self):
+        """Returns global lower bound of variable"""
+        return SCIPvarGetLbGlobal(self.var)
+
+    def getUbGlobal(self):
+        """Returns global upper bound of variable"""
+        return SCIPvarGetUbGlobal(self.var)
+
     def getLbLocal(self):
         """Returns current lower bound of variable"""
         return SCIPvarGetLbLocal(self.var)
@@ -547,9 +563,16 @@ cdef class Model:
         sense -- the objective sense (default 'minimize')
         """
         assert isinstance(coeffs, Expr)
+        if coeffs.degree() > 1:
+            raise ValueError("Nonlinear objective functions are not supported!")
+        if coeffs[CONST] != 0.0:
+            raise ValueError("Constant offsets in objective are not supported!")
         for term, coef in coeffs.terms.items():
-            var = <Variable>term[0]
-            PY_SCIP_CALL(SCIPchgVarObj(self._scip, var.var, coef))
+            # avoid CONST term of Expr
+            if term != CONST:
+                assert len(term) == 1
+                var = <Variable>term[0]
+                PY_SCIP_CALL(SCIPchgVarObj(self._scip, var.var, coef))
 
         if sense == "minimize":
             self.setMinimize()
@@ -935,7 +958,9 @@ cdef class Model:
                 PY_SCIP_CALL(SCIPaddBilinTermQuadratic(self._scip, scip_cons, var1.var, var2.var, c))
 
         PY_SCIP_CALL(SCIPaddCons(self._scip, scip_cons))
-        return Constraint.create(scip_cons)
+        PyCons = Constraint.create(scip_cons)
+        PY_SCIP_CALL(SCIPreleaseCons(self._scip, &scip_cons))
+        return PyCons
 
     def _addNonlinearCons(self, ExprCons cons, **kwargs):
         """Add object of class ExprCons."""
@@ -992,13 +1017,13 @@ cdef class Model:
             kwargs['modifiable'], kwargs['dynamic'], kwargs['removable'],
             kwargs['stickingatnode']) )
         PY_SCIP_CALL(SCIPaddCons(self._scip, scip_cons))
-        result = Constraint.create(scip_cons)
-
+        PyCons = Constraint.create(scip_cons)
+        PY_SCIP_CALL(SCIPreleaseCons(self._scip, &scip_cons))
         PY_SCIP_CALL( SCIPexprtreeFree(&exprtree) )
         free(vars)
         free(monomials)
         free(varexprs)
-        return result
+        return PyCons
 
     def addConsCoeff(self, Constraint cons, Variable var, coeff):
         """Add coefficient to the linear constraint (if non-zero).
@@ -1087,6 +1112,117 @@ cdef class Model:
         PY_SCIP_CALL(SCIPaddCons(self._scip, scip_cons))
         return Constraint.create(scip_cons)
 
+    def addConsCardinality(self, consvars, cardval, indvars=None, weights=None, name="CardinalityCons",
+                initial=True, separate=True, enforce=True, check=True,
+                propagate=True, local=False, dynamic=False,
+                removable=False, stickingatnode=False):
+        """Add a cardinality constraint that allows at most 'cardval' many nonzero variables.
+
+        Keyword arguments:
+        consvars -- list of variables to be included
+        cardval -- nonnegative integer
+        indvars -- indicator variables indicating which variables may be treated as nonzero in cardinality constraint, or None
+                   if new indicator variables should be introduced automatically
+        weights -- weights determining the variable order, or None if variables should be ordered in the same way they were added to the constraint
+        name -- the name of the constraint (default 'CardinalityCons')
+        initial -- should the LP relaxation of constraint be in the initial LP? (default True)
+        separate -- should the constraint be separated during LP processing? (default True)
+        enforce -- should the constraint be enforced during node processing? (default True)
+        check -- should the constraint be checked for feasibility? (default True)
+        propagate -- should the constraint be propagated during node processing? (default True)
+        local -- is the constraint only valid locally? (default False)
+        dynamic -- is the constraint subject to aging? (default False)
+        removable -- hould the relaxation be removed from the LP due to aging or cleanup? (default False)
+        stickingatnode -- should the constraint always be kept at the node where it was added, even if it may be moved to a more global node? (default False)
+        """
+        cdef SCIP_CONS* scip_cons
+        cdef SCIP_VAR* indvar
+
+        PY_SCIP_CALL(SCIPcreateConsCardinality(self._scip, &scip_cons, str_conversion(name), 0, NULL, cardval, NULL, NULL,
+            initial, separate, enforce, check, propagate, local, dynamic, removable, stickingatnode))
+        
+        # circumvent an annoying bug in SCIP 4.0.0 that does not allow uninitialized weights
+        if weights is None:
+            weights = list(range(1, len(consvars) + 1))
+
+        for i, v in enumerate(consvars):
+            var = <Variable>v
+            if indvars:
+                indvar = (<Variable>indvars[i]).var
+            else:
+                indvar = NULL
+            if weights is None:
+                PY_SCIP_CALL(SCIPappendVarCardinality(self._scip, scip_cons, var.var, indvar))
+            else:
+                PY_SCIP_CALL(SCIPaddVarCardinality(self._scip, scip_cons, var.var, indvar, <SCIP_Real>weights[i]))
+
+        PY_SCIP_CALL(SCIPaddCons(self._scip, scip_cons))
+        pyCons = Constraint.create(scip_cons)
+
+        PY_SCIP_CALL(SCIPreleaseCons(self._scip, &scip_cons))
+
+        return pyCons
+
+
+    def addConsIndicator(self, cons, binvar=None, name="CardinalityCons",
+                initial=True, separate=True, enforce=True, check=True,
+                propagate=True, local=False, dynamic=False,
+                removable=False, stickingatnode=False):
+        """Add an indicator constraint for the linear inequality 'cons'.
+
+        The 'binvar' argument models the redundancy of the linear constraint. A solution for which
+        'binvar' is 1 must satisfy the constraint.
+
+        Keyword arguments:
+        cons -- a linear inequality of the form "<="
+        binvar -- binary indicator variable, or None if it should be created
+        name -- the name of the constraint (default 'CardinalityCons')
+        initial -- should the LP relaxation of constraint be in the initial LP? (default True)
+        separate -- should the constraint be separated during LP processing? (default True)
+        enforce -- should the constraint be enforced during node processing? (default True)
+        check -- should the constraint be checked for feasibility? (default True)
+        propagate -- should the constraint be propagated during node processing? (default True)
+        local -- is the constraint only valid locally? (default False)
+        dynamic -- is the constraint subject to aging? (default False)
+        removable -- hould the relaxation be removed from the LP due to aging or cleanup? (default False)
+        stickingatnode -- should the constraint always be kept at the node where it was added, even if it may be moved to a more global node? (default False)
+        """
+        assert isinstance(cons, ExprCons)
+        cdef SCIP_CONS* scip_cons
+        cdef SCIP_VAR* _binVar
+        if cons.lhs is not None and cons.rhs is not None:
+            raise ValueError("expected inequality that has either only a left or right hand side")
+
+        if cons.expr.degree() > 1:
+            raise ValueError("expected linear inequality, expression has degree %d" % cons.expr.degree)
+
+        assert cons.expr.degree() <= 1
+
+        if cons.rhs is not None:
+            rhs =  cons.rhs
+            negate = False
+        else:
+            rhs = -cons.lhs
+            negate = True
+
+        _binVar = (<Variable>binvar).var if binvar is not None else NULL
+
+        PY_SCIP_CALL(SCIPcreateConsIndicator(self._scip, &scip_cons, str_conversion(name), _binVar, 0, NULL, NULL, rhs,
+            initial, separate, enforce, check, propagate, local, dynamic, removable, stickingatnode))
+        terms = cons.expr.terms
+
+        for key, coeff in terms.items():
+            var = <Variable>key[0]
+            if negate:
+                coeff = -coeff
+            PY_SCIP_CALL(SCIPaddVarIndicator(self._scip, scip_cons, var.var, <SCIP_Real>coeff))
+
+        PY_SCIP_CALL(SCIPaddCons(self._scip, scip_cons))
+        pyCons = Constraint.create(scip_cons)
+
+        PY_SCIP_CALL(SCIPreleaseCons(self._scip, &scip_cons))
+
+        return pyCons
 
     def addPyCons(self, Constraint cons):
         """Adds a customly created cons.
@@ -1163,7 +1299,7 @@ cdef class Model:
         cons -- the linear constraint
         """
         # TODO this should ideally be handled on the SCIP side
-        if cons.isOriginal:
+        if cons.isOriginal():
             transcons = <Constraint>self.getTransformedCons(cons)
             return SCIPgetDualsolLinear(self._scip, transcons.cons)
         else:
@@ -1176,7 +1312,7 @@ cdef class Model:
         cons -- the linear constraint
         """
         # TODO this should ideally be handled on the SCIP side
-        if cons.isOriginal:
+        if cons.isOriginal():
             transcons = <Constraint>self.getTransformedCons(cons)
             return SCIPgetDualfarkasLinear(self._scip, transcons.cons)
         else:
@@ -1245,7 +1381,7 @@ cdef class Model:
                                               maxprerounds, delaysepa, delayprop, needscons, proptiming, presoltiming,
                                               PyConshdlrCopy, PyConsFree, PyConsInit, PyConsExit, PyConsInitpre, PyConsExitpre,
                                               PyConsInitsol, PyConsExitsol, PyConsDelete, PyConsTrans, PyConsInitlp, PyConsSepalp, PyConsSepasol,
-                                              PyConsEnfolp, PyConsEnfops, PyConsCheck, PyConsProp, PyConsPresol, PyConsResprop, PyConsLock,
+                                              PyConsEnfolp, PyConsEnforelax, PyConsEnfops, PyConsCheck, PyConsProp, PyConsPresol, PyConsResprop, PyConsLock,
                                               PyConsActive, PyConsDeactive, PyConsEnable, PyConsDisable, PyConsDelvars, PyConsPrint, PyConsCopy,
                                               PyConsParse, PyConsGetvars, PyConsGetnvars, PyConsGetdivebdchgs,
                                               <SCIP_CONSHDLRDATA*>conshdlr))
@@ -1385,18 +1521,19 @@ cdef class Model:
         _sol = <SCIP_SOL*>solution.sol
         PY_SCIP_CALL(SCIPsetSolVal(self._scip, _sol, var.var, val))
 
-    def trySol(self, Solution solution, printreason=True, checkbounds=True, checkintegrality=True, checklprows=True):
+    def trySol(self, Solution solution, printreason=True, completely=False, checkbounds=True, checkintegrality=True, checklprows=True):
         """Try to add a solution to the storage.
 
         Keyword arguments:
         solution -- the solution to store
         printreason -- should all reasons of violations be printed?
+        completely -- should all violation be checked?
         checkbounds -- should the bounds of the variables be checked?
         checkintegrality -- has integrality to be checked?
         checklprows -- have current LP rows (both local and global) to be checked?
         """
         cdef SCIP_Bool stored
-        PY_SCIP_CALL(SCIPtrySolFree(self._scip, &solution.sol, printreason, checkbounds, checkintegrality, checklprows, &stored))
+        PY_SCIP_CALL(SCIPtrySolFree(self._scip, &solution.sol, printreason, completely, checkbounds, checkintegrality, checklprows, &stored))
         return stored
 
     def includeBranchrule(self, Branchrule branchrule, name, desc, priority, maxdepth, maxbounddist):
@@ -1466,7 +1603,7 @@ cdef class Model:
         Keyword arguments:
         original -- objective value in original or transformed space (default True)
         """
-        if not self.getStage() == SCIP_STAGE_SOLVED:
+        if not self.getStage() >= SCIP_STAGE_SOLVING:
             raise Warning("method cannot be called before problem is solved")
         return self.getSolObjVal(self._bestSol, original)
 
@@ -1489,7 +1626,7 @@ cdef class Model:
         Keyword arguments:
         var -- the variable to query the value of
         """
-        if not self.getStage() == SCIP_STAGE_SOLVED:
+        if not self.getStage() >= SCIP_STAGE_SOLVING:
             raise Warning("method cannot be called before problem is solved")
         return self.getSolVal(self._bestSol, var)
 
@@ -1732,6 +1869,26 @@ cdef class Model:
             # create python constraint and append it to conss
             conss.append(ExprCons(quicksum(_vals[j] * Variable.create(_vars[j]) for j in range(_nvars)), lhs, rhs))
         return conss
+
+    # Counting functions
+
+    def count(self):
+        """Counts the number of feasible points of problem."""
+        PY_SCIP_CALL(SCIPcount(self._scip))
+
+    def getNCountedSols(self):
+        """Get number of feasible solution."""
+        cdef SCIP_Bool valid
+        cdef SCIP_Longint nsols
+
+        nsols = SCIPgetNCountedSols(self._scip, &valid)
+        if not valid:
+            print('total number of solutions found is not valid!')
+        return nsols
+
+    def setParamsCountsols(self):
+        """sets SCIP parameters such that a valid counting process is possible."""
+        PY_SCIP_CALL(SCIPsetParamsCountsols(self._scip))
 
 # debugging memory management
 def is_memory_freed():

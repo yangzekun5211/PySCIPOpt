@@ -1,12 +1,26 @@
+import pytest
+
+networkx = pytest.importorskip("networkx")
+plt = pytest.importorskip("matplotlib.pyplot")
+bipartite = pytest.importorskip("networkx.algorithms").bipartite
+
+from pyscipopt import Model, Conshdlr, SCIP_RESULT, SCIP_PARAMEMPHASIS, SCIP_PARAMSETTING
+
 try:
-    import networkx
-    from networkx.algorithms import bipartite
-    from pyscipopt import Model, Conshdlr, SCIP_RESULT, SCIP_PARAMEMPHASIS, SCIP_PARAMSETTING
     from types import SimpleNamespace
-    import matplotlib.pyplot as plt
 except:
-    import pytest
-    pytest.skip()
+    class SimpleNamespace:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+        def __repr__(self):
+            keys = sorted(self.__dict__)
+            items = ("{}={!r}".format(k, self.__dict__[k]) for k in keys)
+            return "{}({})".format(type(self).__name__, ", ".join(items))
+
+        def __eq__(self, other):
+            return self.__dict__ == other.__dict__
+
 
 #initial Sudoku values
 init = [5, 3, 0, 0, 7, 0, 0, 0, 0,
@@ -43,14 +57,14 @@ class ALLDIFFconshdlr(Conshdlr):
         vals = set([])
         for var in vars:
             #print("domain of var ", var.name, "is ", domains[var])
-            vals.update(domains[var]) # vals = vals union domains[var]
+            vals.update(domains[var.ptr()]) # vals = vals union domains[var]
 
         G = networkx.Graph()
         G.add_nodes_from((var.name for var in vars), bipartite = 0) # add vars names as nodes
         G.add_nodes_from(vals, bipartite = 1)                       # add union of values as nodes
 
         for var in vars:
-            for value in domains[var]:
+            for value in domains[var.ptr()]:
                 G.add_edge(var.name, value)
 
         return G, vals
@@ -68,9 +82,9 @@ class ALLDIFFconshdlr(Conshdlr):
         vars = cons.data.vars
         domains = cons.data.domains
 
-        # TODO: would probably nice to have a flag to know whether the constraint is already propagated
-        # I think for this we need and event handler to let us know whenever a variable of our constraint
-        # changed its domain
+        # TODO: would be nice to have a flag to know whether we should propagate the constraint.
+        # We would need an event handler to let us know whenever a variable of our constraint changed its domain
+        # Currently we can't write event handlers in python.
 
         G, vals = self.build_value_graph(vars, domains)
         M = networkx.bipartite.maximum_matching(G) # returns dict between nodes in matching
@@ -86,7 +100,7 @@ class ALLDIFFconshdlr(Conshdlr):
         D.add_nodes_from(G) ## this seems to work
         for var in vars:
             D.add_edge(var.name, M[var.name])
-            for val in domains[var]:
+            for val in domains[var.ptr()]:
                 if val != M[var.name]:
                     D.add_edge(val, var.name)
 
@@ -128,15 +142,15 @@ class ALLDIFFconshdlr(Conshdlr):
         #print("Edges to remove!", G.edges())
         # remove values
         for var in vars:
-            for val in domains[var].copy():
+            for val in domains[var.ptr()].copy():
                 if G.has_edge(var.name, val):
-                    domains[var].remove(val) # this asserts if value is not there and we shouldn't delete two times the same value
+                    domains[var.ptr()].remove(val) # this asserts if value is not there and we shouldn't delete two times the same value
 
         # "fix" variable when possible
         for var in vars:
             #print("domain of var ", var.name, "is ", domains[var])
-            minval = min(domains[var])
-            maxval = max(domains[var])
+            minval = min(domains[var.ptr()])
+            maxval = max(domains[var.ptr()])
             if var.getLbLocal() <  minval:
                 self.model.chgVarLb(var, minval)
             if var.getUbLocal() > maxval:
@@ -169,7 +183,7 @@ class ALLDIFFconshdlr(Conshdlr):
     # checks whether solution is feasible, ie, if they are all different
     # since the checkpriority is < 0, we are only called if the integrality
     # constraint handler didn't find infeasibility, so solution is integral
-    def conscheck(self, constraints, solution, check_integrality, check_lp_rows, print_reason):
+    def conscheck(self, constraints, solution, check_integrality, check_lp_rows, print_reason, completely):
         for cons in constraints:
             if not self.is_cons_feasible(cons, solution):
                 return {"result": SCIP_RESULT.INFEASIBLE}
@@ -214,17 +228,17 @@ def create_sudoku():
 
     # row constraints; also we specify the domain of all variables here
     # TODO/QUESTION: in principle domain is of course associated to the var and not the constraint. it should be "var.data"
-    # But ideally that information would be handle by SCIP herself... the reason we can't is because domain holes is not implemented, right?
+    # But ideally that information would be handle by SCIP itself... the reason we can't is because domain holes is not implemented, right?
     domains = {}
     for row in range(9):
         vars = []
         for col in range(9):
             var = x[row,col]
             vars.append(var)
-            vals = set(range(round(var.getLbLocal()), round(var.getUbLocal()) + 1))
-            domains[var] = vals
+            vals = set(range(int(round(var.getLbLocal())), int(round(var.getUbLocal())) + 1))
+            domains[var.ptr()] = vals
         # this is kind of ugly, isn't it?
-        cons = scip.createCons(conshdlr, "row_%d"%row)
+        cons = scip.createCons(conshdlr, "row_%d" % row)
         #print("in test: received a constraint with id ", id(cons)) ### DELETE
         cons.data = SimpleNamespace() # so that data behaves like an instance of a class (ie, cons.data.whatever is allowed)
         cons.data.vars = vars

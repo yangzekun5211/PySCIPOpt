@@ -1,11 +1,9 @@
-import itertools
 from pyscipopt import Model, Conshdlr, quicksum, SCIP_RESULT
 
-try:
-  import networkx
-except:
-  import pytest
-  pytest.skip()
+import pytest
+
+itertools = pytest.importorskip("itertools")
+networkx = pytest.importorskip("networkx")
 
 EPS = 1.e-6
 
@@ -37,7 +35,7 @@ class TSPconshdlr(Conshdlr):
   # since the checkpriority is < 0, we are only called if the integrality
   # constraint handler didn't find infeasibility, so solution is integral
   def conscheck(self, constraints, solution, check_integrality,
-                check_lp_rows, print_reason, **results):
+                check_lp_rows, print_reason, completely, **results):
     if self.find_subtours(solution):
       return {"result": SCIP_RESULT.INFEASIBLE}
     else:

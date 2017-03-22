@@ -366,6 +366,10 @@ cdef extern from "scip/scip.h":
     SCIP_Bool SCIPvarIsTransformed(SCIP_VAR* var)
     SCIP_COL* SCIPvarGetCol(SCIP_VAR* var)
     SCIP_Bool SCIPvarIsInLP(SCIP_VAR* var)
+    SCIP_Real SCIPvarGetLbOriginal(SCIP_VAR* var)
+    SCIP_Real SCIPvarGetUbOriginal(SCIP_VAR* var)
+    SCIP_Real SCIPvarGetLbGlobal(SCIP_VAR* var)
+    SCIP_Real SCIPvarGetUbGlobal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLbLocal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetUbLocal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetObj(SCIP_VAR* var)
@@ -426,8 +430,8 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPgetSolTransObj(SCIP* scip, SCIP_SOL* sol)
     SCIP_RETCODE SCIPcreateSol(SCIP* scip, SCIP_SOL** sol, SCIP_HEUR* heur)
     SCIP_RETCODE SCIPsetSolVal(SCIP* scip, SCIP_SOL* sol, SCIP_VAR* var, SCIP_Real val)
-    SCIP_RETCODE SCIPtrySolFree(SCIP* scip, SCIP_SOL** sol, SCIP_Bool printreason, SCIP_Bool checkbounds, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool* stored)
-    SCIP_RETCODE SCIPtrySol(SCIP* scip, SCIP_SOL* sol, SCIP_Bool printreason, SCIP_Bool checkbounds, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool* stored)
+    SCIP_RETCODE SCIPtrySolFree(SCIP* scip, SCIP_SOL** sol, SCIP_Bool printreason, SCIP_Bool completely, SCIP_Bool checkbounds, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool* stored)
+    SCIP_RETCODE SCIPtrySol(SCIP* scip, SCIP_SOL* sol, SCIP_Bool printreason, SCIP_Bool completely, SCIP_Bool checkbounds, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool* stored)
     SCIP_RETCODE SCIPfreeSol(SCIP* scip, SCIP_SOL** sol)
     SCIP_RETCODE SCIPprintBestSol(SCIP* scip, FILE* outfile, SCIP_Bool printzeros)
     SCIP_Real SCIPgetPrimalbound(SCIP* scip)
@@ -506,12 +510,13 @@ cdef extern from "scip/scip.h":
                                      SCIP_RETCODE (*consexitsol) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, SCIP_Bool restart),
                                      SCIP_RETCODE (*consdelete) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS* cons, SCIP_CONSDATA** consdata),
                                      SCIP_RETCODE (*constrans) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS* sourcecons, SCIP_CONS** targetcons),
-                                     SCIP_RETCODE (*consinitlp) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss),
+                                     SCIP_RETCODE (*consinitlp) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, SCIP_Bool* infeasible),
                                      SCIP_RETCODE (*conssepalp) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nusefulconss, SCIP_RESULT* result),
                                      SCIP_RETCODE (*conssepasol) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nusefulconss, SCIP_SOL* sol, SCIP_RESULT* result),
                                      SCIP_RETCODE (*consenfolp) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nusefulconss, SCIP_Bool solinfeasible, SCIP_RESULT* result),
+                                     SCIP_RETCODE (*consenfolp) (SCIP* scip, SCIP_SOL* sol, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nusefulconss, SCIP_Bool solinfeasible, SCIP_RESULT* result),
                                      SCIP_RETCODE (*consenfops) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nusefulconss, SCIP_Bool solinfeasible, SCIP_Bool objinfeasible, SCIP_RESULT* result),
-                                     SCIP_RETCODE (*conscheck) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, SCIP_SOL* sol, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool printreason, SCIP_RESULT* result),
+                                     SCIP_RETCODE (*conscheck) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, SCIP_SOL* sol, SCIP_Bool checkintegrality, SCIP_Bool checklprows, SCIP_Bool printreason, SCIP_Bool completely, SCIP_RESULT* result),
                                      SCIP_RETCODE (*consprop) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nusefulconss, int nmarkedconss, SCIP_PROPTIMING proptiming, SCIP_RESULT* result),
                                      SCIP_RETCODE (*conspresol) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS** conss, int nconss, int nrounds, SCIP_PRESOLTIMING presoltiming, int nnewfixedvars, int nnewaggrvars, int nnewchgvartypes, int nnewchgbds, int nnewholes, int nnewdelconss, int nnewaddconss, int nnewupgdconss, int nnewchgcoefs, int nnewchgsides, int* nfixedvars, int* naggrvars, int* nchgvartypes, int* nchgbds, int* naddholes, int* ndelconss, int* naddconss, int* nupgdconss, int* nchgcoefs, int* nchgsides, SCIP_RESULT* result),
                                      SCIP_RETCODE (*consresprop) (SCIP* scip, SCIP_CONSHDLR* conshdlr, SCIP_CONS* cons, SCIP_VAR* infervar, int inferinfo, SCIP_BOUNDTYPE boundtype, SCIP_BDCHGIDX* bdchgidx, SCIP_Real relaxedbd, SCIP_RESULT* result),
@@ -686,13 +691,13 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPreadParams(SCIP* scip, char* file)
     SCIP_RETCODE SCIPwriteParams(SCIP* scip, char* filename, SCIP_Bool comments, SCIP_Bool onlychanged)
     SCIP_RETCODE SCIPreadProb(SCIP* scip, char* file, char* extension)
-    SCIP_RETCODE SCIPsetEmphasis(SCIP* scip, SCIP_PARAMEMPHASIS paramemphasis, SCIP_Bool quiet);
     SCIP_RETCODE SCIPaddRealParam(SCIP* scip, const char* name, const char* desc, SCIP_Real* valueptr, SCIP_Bool isadvanced, SCIP_Real defaultvalue, SCIP_Real minvalue, SCIP_Real maxvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
     SCIP_RETCODE SCIPaddIntParam(SCIP* scip, const char* name, const char* desc, int* valueptr, SCIP_Bool isadvanced, int defaultvalue, int minvalue, int maxvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
     SCIP_RETCODE SCIPaddBoolParam(SCIP* scip, const char* name, const char* desc, SCIP_Bool* valueptr, SCIP_Bool isadvanced, SCIP_Bool defaultvalue, SCIP_RETCODE (*paramchgd) (SCIP* scip, SCIP_PARAM* param), SCIP_PARAMDATA* paramdata)
     SCIP_RETCODE SCIPgetBoolParam(SCIP* scip, const char* name, SCIP_Bool* value)
     SCIP_RETCODE SCIPgetIntParam(SCIP* scip, const char* name, int* value)
     SCIP_RETCODE SCIPgetRealParam(SCIP* scip, const char* name, SCIP_Real* value)
+    SCIP_RETCODE SCIPsetEmphasis(SCIP* scip, SCIP_PARAMEMPHASIS paramemphasis, SCIP_Bool quiet)
 
     # LPI Functions
     SCIP_RETCODE SCIPlpiCreate(SCIP_LPI** lpi, SCIP_MESSAGEHDLR* messagehdlr, const char* name, SCIP_OBJSENSE objsen)
@@ -933,3 +938,62 @@ cdef extern from "scip/pub_lp.h":
 cdef extern from "scip/pub_cons.h":
     SCIP_CONS** SCIPconshdlrGetConss(SCIP_CONSHDLR* conshdlr);
     int SCIPconshdlrGetNConss(SCIP_CONSHDLR* conshdlr);
+
+cdef extern from "scip/cons_cardinality.h":
+    SCIP_RETCODE SCIPcreateConsCardinality(SCIP* scip,
+                                            SCIP_CONS** cons,
+                                            const char* name,
+                                            int nvars,
+                                            SCIP_VAR** vars,
+                                            int cardval,
+                                            SCIP_VAR** indvars,
+                                            SCIP_Real* weights,
+                                            SCIP_Bool initial,
+                                            SCIP_Bool separate,
+                                            SCIP_Bool enforce,
+                                            SCIP_Bool check,
+                                            SCIP_Bool propagate,
+                                            SCIP_Bool local,
+                                            SCIP_Bool dynamic,
+                                            SCIP_Bool removable,
+                                            SCIP_Bool stickingatnode)
+
+    SCIP_RETCODE SCIPaddVarCardinality(SCIP* scip,
+                                       SCIP_CONS* cons,
+                                       SCIP_VAR* var,
+                                       SCIP_VAR* indvar,
+                                       SCIP_Real weight)
+
+    SCIP_RETCODE SCIPappendVarCardinality(SCIP* scip,
+                                          SCIP_CONS* cons,
+                                          SCIP_VAR* var,
+                                          SCIP_VAR* indvar)
+
+cdef extern from "scip/cons_indicator.h":
+    SCIP_RETCODE SCIPcreateConsIndicator(SCIP* scip,
+                                         SCIP_CONS** cons,
+                                         const char* name,
+                                         SCIP_VAR* binvar,
+                                         int nvars,
+                                         SCIP_VAR** vars,
+                                         SCIP_Real* vals,
+                                         SCIP_Real rhs,
+                                         SCIP_Bool initial,
+                                         SCIP_Bool separate,
+                                         SCIP_Bool enforce,
+                                         SCIP_Bool check,
+                                         SCIP_Bool propagate,
+                                         SCIP_Bool local,
+                                         SCIP_Bool dynamic,
+                                         SCIP_Bool removable,
+                                         SCIP_Bool stickingatnode)
+
+    SCIP_RETCODE SCIPaddVarIndicator(SCIP* scip,
+                                     SCIP_CONS* cons,
+                                     SCIP_VAR* var,
+                                     SCIP_Real val)
+
+cdef extern from "scip/cons_countsols.h":
+    SCIP_RETCODE SCIPcount(SCIP* scip)
+    SCIP_RETCODE SCIPsetParamsCountsols(SCIP* scip)
+    SCIP_Longint SCIPgetNCountedSols(SCIP* scip, SCIP_Bool* valid)

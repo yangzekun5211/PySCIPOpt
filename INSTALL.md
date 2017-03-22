@@ -1,27 +1,57 @@
-Building the Python interface
-=============================
+Requirements
+============
 
-The SCIP Python interface uses the shared library of the [SCIP Optimization Suite](http://scip.zib.de/).
-Therefore you have to run
+PySCIPOpt uses the shared library of the [SCIP Optimization Suite](http://scip.zib.de/).
+You need to have the library corresponding to your platform (Linux, Windows, OS X) available on your system.
+If the library is not installed in the global path you need to specify its location using the environment variable `SCIPOPTDIR`:
 
-    make SHARED=true scipoptlib
+ - on Linux and OS X:  
+    `export SCIPOPTDIR=<path_to_install_dir>`
 
-from the root of the SCIP Optimization Suite directory. This will result in the creation of the directory `<path/to/scipopt/lib>` and the shared library `libscipopt.so`.
+ - on Windows:  
+    `set SCIPOPTDIR=<path_to_install_dir>`
 
-From within the `PySCIPOpt` directory, please execute the following command:
+`SCIPOPTDIR` needs to have a subdirectory `lib` that contains the library.
 
-    SCIPOPTDIR=<path/to/scipopt> python setup.py install
+Additionally, if you're building PySCIPOpt from source, i.e. not using the precompiled egg or wheel, you also need to place all SCIP header files into a directory `include` next to `lib` (this is done automatically by `make install INSTALLDIR=$SCIPOPTDIR SHARED=true` of the SCIP Optimization Suite):
+
+    SCIPOPTDIR
+      > lib
+        > libscipopt.so ...
+      > include
+        > scip
+        > lpi
+        > nlpi
+        > ...
+
+
+
+Installation from PyPI
+======================
+
+`pip install pyscipopt`
+
+On Windows you need to make sure that the `scipopt` library can be found at runtime by adjusting your `PATH` environment variable:
+
+ - on Windows:  
+    `set PATH=%PATH%;%SCIPOPTDIR%\lib`
+
+On Linux and OS X this is encoded in the generated PySCIPOpt library and therefore not necessary.
+
+
+
+Building everything form source
+===============================
+
+Please refer to [installation instructions](http://scip.zib.de/doc/html/MAKE.php) of the SCIP Optimization Suite for information on how to generate a shared library or download a precompiled one.
+
+PySCIPOpt requires [Cython](http://cython.org/) to be installed in your system. If the Cython compilation fails, upgrade your Cython version (confirmed that version 0.20.1 fails). Furthermore, you need to have the Python development files installed on your system (error message "Python.h not found"):
+
+    sudo apt-get install python-dev   # for Python 2
+    sudo apt-get install python3-dev  # for Python 3
+
+After setting up your environment variables as specified above, please execute the following command:
+
+    python setup.py install
 
 You may use the additional options `--user` or `--prefix=<custom-python-path>`, to build the interface locally.
-
-PySCIPOpt requires [Cython](http://cython.org/) to be installed in your system.
-
-TROUBLESHOOTING
-===============
-
-The installation routine tries to generate symbolic links to the library directory `lib` as well as to the `src` directory of SCIP. In case of installation problems you should verify the correctness of the links in the directories `lib` and `include`.
-
-Note:
------
-
-You cannot use the interface module from within this directory. This is because Python will try to import the `pyscipopt` package from the local directory instead of using the installed one.
