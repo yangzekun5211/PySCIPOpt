@@ -708,6 +708,11 @@ cdef extern from "scip/cons_linear.h":
 
     SCIP_Real SCIPgetDualsolLinear(SCIP* scip, SCIP_CONS* cons)
     SCIP_Real SCIPgetDualfarkasLinear(SCIP* scip, SCIP_CONS* cons)
+    SCIP_Real SCIPgetLhsLinear(SCIP* scip, SCIP_CONS* cons)
+    SCIP_Real SCIPgetRhsLinear(SCIP* scip, SCIP_CONS* cons)
+    SCIP_VAR** SCIPgetVarsLinear(SCIP* scip, SCIP_CONS* cons)
+    int SCIPgetNVarsLinear(SCIP* scip, SCIP_CONS* cons)
+    SCIP_Real* SCIPgetValsLinear(SCIP* scip, SCIP_CONS* cons)
 
 cdef extern from "scip/cons_quadratic.h":
     SCIP_RETCODE SCIPcreateConsQuadratic(SCIP* scip,
@@ -911,3 +916,7 @@ cdef extern from "scip/cons_countsols.h":
     SCIP_RETCODE SCIPcount(SCIP* scip)
     SCIP_RETCODE SCIPsetParamsCountsols(SCIP* scip)
     SCIP_Longint SCIPgetNCountedSols(SCIP* scip, SCIP_Bool* valid)
+
+cdef extern from "scip/pub_cons.h":
+    SCIP_CONSHDLR* SCIPconsGetHdlr(SCIP_CONS* cons)
+    const char* SCIPconshdlrGetName(SCIP_CONSHDLR* conshldr)

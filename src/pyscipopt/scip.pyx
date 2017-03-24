@@ -4,6 +4,7 @@ import sys
 
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
+from libc.stdio cimport printf
 
 include "expr.pxi"
 include "lp.pxi"
@@ -535,6 +536,8 @@ cdef class Model:
         cname = str_conversion(name)
         if ub is None:
             ub = SCIPinfinity(self._scip)
+        if lb is None:
+            lb = -SCIPinfinity(self._scip)
         cdef SCIP_VAR* scip_var
         if vtype in ['C', 'CONTINUOUS']:
             PY_SCIP_CALL(SCIPcreateVarBasic(self._scip, &scip_var, cname, lb, ub, obj, SCIP_VARTYPE_CONTINUOUS))
@@ -1567,6 +1570,48 @@ cdef class Model:
     def setParamsCountsols(self):
         """sets SCIP parameters such that a valid counting process is possible."""
         PY_SCIP_CALL(SCIPsetParamsCountsols(self._scip))
+
+    # Data from (read) problem
+    def getLinearConssAsLinCons(self):
+        """Retrieve all linear constraints as python constraints."""
+        cdef SCIP_CONS** conss
+        cdef SCIP_CONS* cons
+        cdef Constraint c
+        cdef int nconss
+        cdef SCIP_VAR** vars
+        cdef int nvars
+        cdef SCIP_Real lhs
+        cdef SCIP_Real rhs
+        cdef SCIP_Real* vals
+        cdef SCIP_CONSHDLR* conshdlr
+
+        conss = SCIPgetConss(self._scip)
+        nconss = SCIPgetNConss(self._scip)
+
+        pythonconss = []
+        for i in range(nconss):
+            # get conshldr name
+            cons = conss[i]
+            #printf("cons %p\n", cons)
+            conshdlr = SCIPconsGetHdlr(cons)
+            conshdlrname = SCIPconshdlrGetName(conshdlr)
+            #printf("cons name %s\n", SCIPconsGetName(cons))
+            #print("the conshdlr name of this conshdlr is ", conshdlrname)
+            #print("the conshdlr name of this conshdlr is ", bytes(conshdlrname))
+            #print("the conshdlr name of this conshdlr is ", conshdlrname.decode())
+            if conshdlrname.decode() == 'linear':
+                # get data
+                lhs = SCIPgetLhsLinear(self._scip, cons)
+                rhs = SCIPgetRhsLinear(self._scip, cons)
+                vars = SCIPgetVarsLinear(self._scip, cons)
+                vals = SCIPgetValsLinear(self._scip, cons)
+                nvars = SCIPgetNVarsLinear(self._scip, cons)
+
+                # create python constraint and append it to conss
+                pythonconss.append(lhs <= (quicksum(vals[j] * Variable.create(vars[j]) for j in range(nvars)) <= rhs))
+        return pythonconss
+
+
 
 # debugging memory management
 def is_memory_freed():
