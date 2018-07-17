@@ -2425,6 +2425,42 @@ cdef class Model:
         benders.model = <Model>weakref.proxy(self)
         Py_INCREF(benders)
 
+    # Branching methods
+
+    # TODO: allow for more combination of arguments!
+    def getLPBranchCands(self, getsols=False, getfracs=True, getall=False, getprio=True):
+        """Gets branching candidates for LP solution branching along with solution values,
+        fractionalities TODO: etc
+
+        Keyword arguments:
+        getsols -- if solution value of branching variables should be returned
+        getfracs -- if fractionality of branching variables should be returned
+        getall -- if all branching variables should be returned
+        getprio -- if only variables with maximal priority should be returned
+        """
+        assert getsols == False and getfracs == True and getall == False and getprio == True
+        cdef SCIP_VAR** vars
+        cdef SCIP_Real* lpcandsfrac
+        cdef int npriolpcands
+        PY_SCIP_CALL(SCIPgetLPBranchCands(self._scip, &vars, NULL, &lpcandsfrac, NULL, &npriolpcands, NULL))
+        PyVars = []
+        fracs = []
+        for i in range(npriolpcands):
+            PyVars.append(<Variable>SCIPvarGetData(vars[i]))
+            fracs.append(lpcandsfrac[i])
+        return PyVars, fracs
+
+    def createChild(self, nodeselprio, estimate):
+        """creates a child node of the focus node
+
+        Keyword arguments:
+        nodeselprio -- node selection priority of new node
+        estimate -- estimate for (transformed) objective value of best feasible solution in subtree
+        """
+        cdef SCIP_NODE* node
+        PY_SCIP_CALL(SCIPcreateChild(self._scip, &node, <SCIP_Real>nodeselprio, <SCIP_Real>estimate))
+        return Node.create(node)
+
     # Solution functions
 
     def createSol(self, Heur heur = None):

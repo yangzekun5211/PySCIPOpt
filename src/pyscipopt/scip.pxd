@@ -544,6 +544,13 @@ cdef extern from "scip/scip.h":
     int SCIPgetNLPRows(SCIP* scip)
     int SCIPgetNLPCols(SCIP* scip)
 
+    # Branching Methods
+    SCIP_RETCODE SCIPgetLPBranchCands(SCIP* scip, SCIP_VAR*** lpcands,
+            SCIP_Real** lpcandssol, SCIP_Real** lpcandsfrac, int* nlpcands,
+            int* npriolpcands, int* nfracimplvars)
+    SCIP_RETCODE SCIPcreateChild(SCIP* scip, SCIP_NODE** node, SCIP_Real
+            nodeselprio, SCIP_Real estimate)
+
     # Cutting Plane Methods
     SCIP_RETCODE SCIPaddPoolCut(SCIP* scip, SCIP_ROW* row)
     SCIP_Real SCIPgetCutEfficacy(SCIP* scip, SCIP_SOL* sol, SCIP_ROW* cut)
