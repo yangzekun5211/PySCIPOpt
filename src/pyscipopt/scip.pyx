@@ -492,7 +492,7 @@ cdef class Variable(Expr):
         """Retrieve the current LP solution value of variable"""
         return SCIPvarGetLPSol(self.var)
 
-    def varsHaveCommonClique(self, value1, var2, value2, regardimplics=True):
+    def varsHaveCommonClique(self, value1, Variable var2, value2, regardimplics=True):
         """ Returns whether there is a clique that contains both given variable/value pairs;
         That is, if the given variable being fixed to value1 forces var2 to be value2
         and vice versa
@@ -502,7 +502,7 @@ cdef class Variable(Expr):
         :param value2: value of second variable in clique
         :param regardimplics: should the implication graph be checked? (default 'True')
         """
-        return SCIPvarsHaveCommonClique(self.var, value1, var2, value2, regardimplics);
+        return SCIPvarsHaveCommonClique(self.var, value1, var2.var, value2, regardimplics);
 
 
 cdef class Constraint:
