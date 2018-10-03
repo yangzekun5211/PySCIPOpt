@@ -582,6 +582,8 @@ cdef extern from "scip/scip.h":
     SCIP_Real SCIPvarGetUbLocal(SCIP_VAR* var)
     SCIP_Real SCIPvarGetObj(SCIP_VAR* var)
     SCIP_Real SCIPvarGetLPSol(SCIP_VAR* var)
+    SCIP_Bool SCIPvarsHaveCommonClique( SCIP_VAR* var1, SCIP_Bool value1,
+            SCIP_VAR* var2, SCIP_Bool value2, SCIP_Bool regardimplics)
 
     # LP Methods
     SCIP_RETCODE SCIPgetLPColsData(SCIP* scip, SCIP_COL*** cols, int* ncols)
