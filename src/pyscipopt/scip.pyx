@@ -2446,7 +2446,7 @@ cdef class Model:
         PyVars = []
         fracs = []
         for i in range(npriolpcands):
-            PyVars.append(<Variable>SCIPvarGetData(vars[i]))
+            PyVars.append(Variable.create(vars[i]))
             fracs.append(lpcandsfrac[i])
         return PyVars, fracs
 
