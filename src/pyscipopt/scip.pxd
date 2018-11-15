@@ -235,10 +235,11 @@ cdef extern from "scip/scip.h":
         SCIP_LOCKTYPE_CONFLICT = 1
 
     ctypedef enum SCIP_BENDERSENFOTYPE:
-        SCIP_BENDERSENFOTYPE_LP      = 1
-        SCIP_BENDERSENFOTYPE_RELAX   = 2
-        SCIP_BENDERSENFOTYPE_PSEUDO  = 3
-        SCIP_BENDERSENFOTYPE_CHECK   = 4
+        SCIP_BENDERSENFOTYPE_LP             = 1
+        SCIP_BENDERSENFOTYPE_RELAX          = 2
+        SCIP_BENDERSENFOTYPE_PSEUDO         = 3
+        SCIP_BENDERSENFOTYPE_CHECKCONVEX    = 4
+        SCIP_BENDERSENFOTYPE_CHECKFULL      = 5
 
     ctypedef bint SCIP_Bool
 

@@ -2150,7 +2150,7 @@ cdef class Model:
                     _benders[i], self._bestSol.sol, j))
                 PY_SCIP_CALL(SCIPsolveBendersSubproblem(self._scip,
                     _benders[i], self._bestSol.sol, j, &_infeasible,
-                    SCIP_BENDERSENFOTYPE_CHECK, solvecip, NULL))
+                    SCIP_BENDERSENFOTYPE_CHECKFULL, solvecip, NULL))
 
     def freeBendersSubproblems(self):
         """Calls the free subproblem function for the Benders' decomposition.
