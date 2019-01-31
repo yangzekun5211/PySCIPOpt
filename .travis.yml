@@ -1,5 +1,9 @@
-os: linux
-dist: xenial
+matrix:
+  include:
+    - os: linux
+      dist: xenial
+    - os: osx
+
 sudo: true
 
 language: python
@@ -19,12 +23,11 @@ notifications:
   email: false
 
 before_install:
-  - wget http://scip.zib.de/download/release/SCIPOptSuite-$VERSION-Linux.deb
-  - sudo apt-get update && sudo apt install -y ./SCIPOptSuite-$VERSION-Linux.deb
+  ./.travis/install.sh
 
 install:
   - pip install cython networkx pytest-cov
-  - python setup.py install
+  - pip install -e .
 
 script: py.test #--cov
 
