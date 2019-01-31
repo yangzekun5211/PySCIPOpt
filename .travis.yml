@@ -1,18 +1,18 @@
-matrix:
-  include:
-    - os: linux
-      dist: xenial
-    - os: osx
-
-sudo: true
-
 language: python
 
-python:
-  - 2.7
-  - 3.5
-  - 3.6
-  - 3.7
+os: linux
+dist: xenial
+
+matrix:
+  include:
+    - python: 2.7
+    - python: 3.5
+    - python: 3.6
+    - python: 3.7
+    - os: osx
+      language: generic
+
+sudo: true
 
 env:
   global:
@@ -23,13 +23,26 @@ notifications:
   email: false
 
 before_install:
-  ./.travis/install.sh
+  - if [[ $TRAVIS_OS_NAME == 'linux' ]]; then
+      wget http://scip.zib.de/download/release/SCIPOptSuite-$VERSION-Linux.deb;
+      sudo apt-get update && sudo apt install -y ./SCIPOptSuite-$VERSION-Linux.deb;
+    else
+      pip install virtualenv;
+      virtualenv --python=python3 venv;
+      source venv/bin/activate;
+      python --version;
+      brew install gcc;
+      wget http://scip.zib.de/download/release/SCIPOptSuite-$VERSION-Darwin.dmg;
+      sudo yes | hdiutil attach -quiet ./SCIPOptSuite-$VERSION-Darwin.dmg;
+      sudo cp -r /Volumes/SCIPOptSuite/bin /Volumes/SCIPOptSuite/lib /Volumes/SCIPOptSuite/include /usr/local;
+    fi
 
 install:
   - pip install cython networkx pytest-cov
-  - pip install -e .
+  - python --version
+  - python setup.py install
 
-script: py.test #--cov
+script: pytest #--cov
 
 # after_success:
   # - codecov
