@@ -43,7 +43,7 @@ install:
   - python setup.py install
   - python -c "import pyscipopt; m=pyscipopt.Model(); m.printVersion()"
 
-script: pytest #--cov
+script: python -m pytest
 
 # after_success:
   # - codecov
