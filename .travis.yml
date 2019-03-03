@@ -40,8 +40,8 @@ before_install:
 install:
   - pip install cython networkx pytest-cov
   - python --version
-  - python -c "import pyscipopt; m=pyscipopt.Model(); m.printVersion()"
   - python setup.py install
+  - python -c "import pyscipopt; m=pyscipopt.Model(); m.printVersion()"
 
 script: pytest #--cov
 
