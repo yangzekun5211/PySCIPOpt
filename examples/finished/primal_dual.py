@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     del m
 
-    plt.plot(tpbs, pbs, linewidth=4.0)
+    plt.step(tpbs, pbs, linewidth=4.0)
     plt.plot(tdbs, dbs, linewidth=4.0)
 
     if len(sys.argv) == 3:
